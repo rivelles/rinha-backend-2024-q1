@@ -4,7 +4,7 @@ import (
 	"go/types"
 )
 
-type Extrato struct {
-	idCliente  int
-	transacoes types.Slice
+type Statement struct {
+	clientId     int
+	transactions types.Slice
 }

@@ -1,7 +1,8 @@
 package model
 
-type Transacao struct {
-	valor     int
-	tipo      string
-	descricao string
+type Transaction struct {
+	ClientId        int
+	Value           int
+	TransactionType string
+	Description     string
 }

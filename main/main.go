@@ -2,8 +2,14 @@ package main
 
 import (
 	"fmt"
+	"github.com/rivelles/rinha-backend-2024-q1/application/usecases"
 	"net/http"
 )
+
+type App struct {
+	createTransactionUseCase usecases.CreateTransactionUseCase,
+	getStatementUseCase usecases.GetStatementUseCase,
+}
 
 func runServer() {
 	http.HandleFunc("/clientes/{id}/transacoes", HandleCreateTransaction)
