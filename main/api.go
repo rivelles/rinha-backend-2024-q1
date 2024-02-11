@@ -1,9 +1,13 @@
-package api
+package main
 
 import (
 	"fmt"
 	"net/http"
 )
+
+func main() {
+	fmt.Println("A")
+}
 
 func hello(writer http.ResponseWriter, req *http.Request) {
 	fmt.Println("Received a request on hello!")
