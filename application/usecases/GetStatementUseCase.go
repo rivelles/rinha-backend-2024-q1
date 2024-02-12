@@ -9,6 +9,10 @@ type GetStatementUseCase struct {
 	repository repositories.ClientRepository
 }
 
-func (g GetStatementUseCase) execute(clientId int) model.Statement {
+func NewGetStatementUseCase(repository repositories.ClientRepository) GetStatementUseCase {
+	return GetStatementUseCase{repository}
+}
+
+func (g GetStatementUseCase) Execute(clientId int) model.Statement {
 	return g.repository.GetStatement(clientId)
 }

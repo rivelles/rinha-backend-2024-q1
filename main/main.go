@@ -1,7 +1,7 @@
 package main
 
 func main() {
-	app := NewApp()
+	app := NewApp(nil, nil)
 
 	app.Run(9091)
 }
