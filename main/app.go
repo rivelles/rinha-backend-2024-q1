@@ -29,7 +29,7 @@ func (a App) Run(port int) {
 }
 
 func (a App) HandleCreateTransaction(writer http.ResponseWriter, req *http.Request) {
-	a.createTransactionUseCase.Execute(1, 1, "", "")
+	a.createTransactionUseCase.Execute(1, 1, "c", "aaa")
 }
 
 func (a App) HandleGetStatement(writer http.ResponseWriter, req *http.Request) {

@@ -1,0 +1,17 @@
+version: "3"
+
+services:
+  scylla:
+    container_name: scylla
+    image: scylladb/scylla:5.2.0
+    restart: always
+    command: --smp 1 --memory 1G
+    ports:
+      - '9042:9042'
+
+  redis:
+    container_name: redis
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '6379:6379'
