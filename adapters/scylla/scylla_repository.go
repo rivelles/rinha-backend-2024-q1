@@ -18,7 +18,15 @@ func NewScyllaRepository() *ScyllaRepository {
 	session, _ := gocql.NewSession(cfg)
 	session.Query("create keyspace if not exists rinha with replication = {'class':'SimpleStrategy', 'replication_factor':1}").Exec()
 
-	session.Query("create table if not exists rinha.transactions(client_id int, value int, type text, description text, timestamp bigint, PRIMARY KEY(client_id, timestamp))").Exec()
+	session.Query("create table if not exists rinha.transactions" +
+		"(client_id int, " +
+		"timestamp bigint, " +
+		"value int, " +
+		"current_balance int, " +
+		"type text, " +
+		"description text, " +
+		"PRIMARY KEY(client_id, timestamp)" +
+		")").Exec()
 
 	fmt.Println("Created keyspace")
 
@@ -26,31 +34,37 @@ func NewScyllaRepository() *ScyllaRepository {
 }
 
 func (s ScyllaRepository) SaveTransaction(transaction model.Transaction) {
-	query := fmt.Sprintf("insert into rinha.transactions (client_id, value, type, description, timestamp) VALUES "+
-		"(%v, %v, '%v', '%v', %v)", transaction.ClientId, transaction.Value, transaction.TransactionType, transaction.Description, transaction.Timestamp)
+	query := fmt.Sprintf("insert into rinha.transactions (client_id, value, current_balance, type, description, timestamp) VALUES "+
+		"(%v, %v, %v, '%v', '%v', %v)", transaction.ClientId, transaction.Value, transaction.CurrentBalance, transaction.TransactionType, transaction.Description, transaction.Timestamp)
 	s.session.Query(query).Exec()
 }
 
 func (s ScyllaRepository) GetStatement(clientId int, clientLimit int) model.Statement {
-	query := fmt.Sprintf("select value, type, description, timestamp "+
+	query := fmt.Sprintf("select value, current_balance, type, description, timestamp "+
 		"from rinha.transactions "+
 		"WHERE client_id = %v "+
 		"ORDER BY timestamp DESC "+
 		"PER PARTITION LIMIT 10", clientId)
 
 	scanner := s.session.Query(query).Iter().Scanner()
-	var transactions []model.Transaction
 	balance := 0
+	firstRow := true
+	var transactions []model.Transaction
 	for scanner.Next() {
 		var (
 			value           string
+			currentBalance  int
 			transactionType string
 			description     string
 			timestamp       string
 		)
-		err := scanner.Scan(&value, &transactionType, &description, &timestamp)
+		err := scanner.Scan(&value, &currentBalance, &transactionType, &description, &timestamp)
 		if err != nil {
 			log.Fatal(err)
+		}
+		if firstRow {
+			balance = currentBalance
+			firstRow = false
 		}
 		intValue, _ := strconv.Atoi(value)
 		timestampInt, _ := strconv.ParseInt(timestamp, 10, 64)
@@ -62,19 +76,14 @@ func (s ScyllaRepository) GetStatement(clientId int, clientLimit int) model.Stat
 			Timestamp:       timestampInt,
 		})
 		transactions = i
-		if transactionType == "c" {
-			balance += intValue
-		} else {
-			balance -= intValue
-		}
 	}
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
 
 	summary := model.Summary{
-		Total:       balance,
 		GeneratedAt: time.Now().String(),
+		Total:       balance,
 		Limit:       clientLimit,
 	}
 	return model.Statement{
@@ -84,26 +93,22 @@ func (s ScyllaRepository) GetStatement(clientId int, clientLimit int) model.Stat
 }
 
 func (s ScyllaRepository) GetBalance(clientId int) int {
-	query := fmt.Sprintf("select value, type "+
-		"from rinha.transactions "+
-		"where client_id = %v", clientId)
+	query := fmt.Sprintf("SELECT current_balance "+
+		"FROM rinha.transactions "+
+		"WHERE client_id = %v"+
+		"ORDER BY timestamp DESC "+
+		"PER PARTITION LIMIT 1", clientId)
 	scanner := s.session.Query(query).Iter().Scanner()
 	balance := 0
 	for scanner.Next() {
 		var (
-			value           string
-			transactionType string
+			value string
 		)
-		err := scanner.Scan(&value, &transactionType)
+		err := scanner.Scan(&value)
 		if err != nil {
 			log.Fatal(err)
 		}
-		intValue, _ := strconv.Atoi(value)
-		if transactionType == "c" {
-			balance += intValue
-		} else {
-			balance -= intValue
-		}
+		balance, _ = strconv.Atoi(value)
 	}
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)

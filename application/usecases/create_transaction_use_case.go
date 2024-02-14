@@ -13,29 +13,46 @@ type CreateTransactionUseCase struct {
 	lockManager lock.LockManager
 }
 
-func NewCreateTransactionUseCase(repository repositories.ClientRepository, lockManager lock.LockManager) CreateTransactionUseCase {
+func NewCreateTransactionUseCase(repository repositories.ClientRepository,
+	lockManager lock.LockManager) CreateTransactionUseCase {
 	return CreateTransactionUseCase{
 		repository:  repository,
 		lockManager: lockManager,
 	}
 }
 
-func (useCase CreateTransactionUseCase) Execute(clientId int, value int, transactionType string, description string, clientLimit int) error {
+func (useCase CreateTransactionUseCase) Execute(
+	clientId int,
+	value int,
+	transactionType string,
+	description string,
+	clientLimit int) error {
 	currentBalance := useCase.repository.GetBalance(clientId)
-	if transactionType == "d" && futureValueLessThanLimit(clientId, value, currentBalance, clientLimit) {
+	if transactionType == "d" && futureValueLessThanLimit(value, currentBalance, clientLimit) {
 		return fmt.Errorf("transaction not allowed: future balance would be less than limit")
+	}
+	newBalance := currentBalance
+	if transactionType == "d" {
+		newBalance -= value
+	} else {
+		newBalance += value
 	}
 	transaction := model.Transaction{
 		ClientId:        clientId,
+		Timestamp:       time.Now().UnixMilli(),
 		Value:           value,
+		CurrentBalance:  newBalance,
 		TransactionType: transactionType,
 		Description:     description,
-		Timestamp:       time.Now().UnixMilli(),
 	}
 	useCase.repository.SaveTransaction(transaction)
 	return nil
 }
 
-func futureValueLessThanLimit(clientId int, value int, currentBalance int, clientLimit int) bool {
-	return currentBalance-value < clientLimit
+func futureValueLessThanLimit(value int, currentBalance int, clientLimit int) bool {
+	newValue := currentBalance - value
+	if newValue < 0 {
+		return -newValue > clientLimit
+	}
+	return false
 }

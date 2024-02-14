@@ -38,7 +38,28 @@ func (a App) Run(port int) {
 }
 
 func (a App) HandleCreateTransaction(writer http.ResponseWriter, req *http.Request) {
-	a.createTransactionUseCase.Execute(1, 1, "c", "aaa", limitByClientId[1])
+	clientId, _ := strconv.Atoi(req.PathValue("id"))
+	var transactionRequest struct {
+		Value int    `json:"valor"`
+		Type  string `json:"tipo"`
+		Desc  string `json:"descricao"`
+	}
+	err := json.NewDecoder(req.Body).Decode(&transactionRequest)
+	if err != nil {
+		http.Error(writer, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = a.createTransactionUseCase.Execute(
+		clientId,
+		transactionRequest.Value,
+		transactionRequest.Type,
+		transactionRequest.Desc,
+		limitByClientId[clientId],
+	)
+	if err != nil {
+		http.Error(writer, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
 }
 
 func (a App) HandleGetStatement(writer http.ResponseWriter, req *http.Request) {
