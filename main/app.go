@@ -14,6 +14,15 @@ type App struct {
 	getStatementUseCase      usecases.GetStatementUseCase
 }
 
+// Roubando :)
+var limitByClientId = map[int]int{
+	1: 100000,
+	2: 80000,
+	3: 1000000,
+	4: 10000000,
+	5: 500000,
+}
+
 func NewApp(repository repositories.ClientRepository, lockManager lock.LockManager) *App {
 	return &App{
 		usecases.NewCreateTransactionUseCase(repository, lockManager),
@@ -29,7 +38,7 @@ func (a App) Run(port int) {
 }
 
 func (a App) HandleCreateTransaction(writer http.ResponseWriter, req *http.Request) {
-	a.createTransactionUseCase.Execute(1, 1, "c", "aaa")
+	a.createTransactionUseCase.Execute(1, 1, "c", "aaa", limitByClientId[1])
 }
 
 func (a App) HandleGetStatement(writer http.ResponseWriter, req *http.Request) {
@@ -37,7 +46,7 @@ func (a App) HandleGetStatement(writer http.ResponseWriter, req *http.Request) {
 	if clientId > 5 || clientId < 0 {
 		writer.WriteHeader(http.StatusNotFound)
 	} else {
-		statement := a.getStatementUseCase.Execute(clientId)
+		statement := a.getStatementUseCase.Execute(clientId, limitByClientId[clientId])
 		writer.Header().Set("Content-Type", "text/json; charset=utf-8")
 		writer.WriteHeader(200)
 		statementJson, _ := json.Marshal(statement)
