@@ -67,7 +67,11 @@ func (a App) HandleGetStatement(writer http.ResponseWriter, req *http.Request) {
 	if clientId > 5 || clientId < 0 {
 		writer.WriteHeader(http.StatusNotFound)
 	} else {
-		statement := a.getStatementUseCase.Execute(clientId, limitByClientId[clientId])
+		statement, err := a.getStatementUseCase.Execute(clientId, limitByClientId[clientId])
+		if err != nil {
+			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		writer.Header().Set("Content-Type", "text/json; charset=utf-8")
 		writer.WriteHeader(200)
 		statementJson, _ := json.Marshal(statement)

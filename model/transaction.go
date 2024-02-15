@@ -6,5 +6,6 @@ type Transaction struct {
 	CurrentBalance  int    `json:"-"`
 	TransactionType string `json:"tipo"`
 	Description     string `json:"descricao"`
-	Timestamp       int64  `json:"realizada_em"`
+	Timestamp       int64  `json:"-"`
+	TimestampStr    string `json:"realizada_em"`
 }

@@ -13,6 +13,10 @@ func NewGetStatementUseCase(repository repositories.ClientRepository) GetStateme
 	return GetStatementUseCase{repository}
 }
 
-func (g GetStatementUseCase) Execute(clientId int, clientLimit int) model.Statement {
-	return g.repository.GetStatement(clientId, clientLimit)
+func (g GetStatementUseCase) Execute(clientId int, clientLimit int) (model.Statement, error) {
+	statement, err := g.repository.GetStatement(clientId, clientLimit)
+	if err != nil {
+		return model.Statement{}, err
+	}
+	return statement, nil
 }

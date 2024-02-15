@@ -33,13 +33,14 @@ func NewScyllaRepository() *ScyllaRepository {
 	return &ScyllaRepository{session: session}
 }
 
-func (s ScyllaRepository) SaveTransaction(transaction model.Transaction) {
+func (s ScyllaRepository) SaveTransaction(transaction model.Transaction) error {
 	query := fmt.Sprintf("insert into rinha.transactions (client_id, value, current_balance, type, description, timestamp) VALUES "+
 		"(%v, %v, %v, '%v', '%v', %v)", transaction.ClientId, transaction.Value, transaction.CurrentBalance, transaction.TransactionType, transaction.Description, transaction.Timestamp)
-	s.session.Query(query).Exec()
+	err := s.session.Query(query).Exec()
+	return err
 }
 
-func (s ScyllaRepository) GetStatement(clientId int, clientLimit int) model.Statement {
+func (s ScyllaRepository) GetStatement(clientId int, clientLimit int) (model.Statement, error) {
 	query := fmt.Sprintf("select value, current_balance, type, description, timestamp "+
 		"from rinha.transactions "+
 		"WHERE client_id = %v "+
@@ -74,25 +75,26 @@ func (s ScyllaRepository) GetStatement(clientId int, clientLimit int) model.Stat
 			TransactionType: transactionType,
 			Description:     description,
 			Timestamp:       timestampInt,
+			TimestampStr:    time.UnixMilli(timestampInt).Format(time.RFC3339),
 		})
 		transactions = i
 	}
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		return model.Statement{}, err
 	}
 
 	summary := model.Summary{
-		GeneratedAt: time.Now().String(),
+		GeneratedAt: time.Now().Format(time.RFC3339),
 		Total:       balance,
 		Limit:       clientLimit,
 	}
 	return model.Statement{
 		Summary:      summary,
 		Transactions: transactions,
-	}
+	}, nil
 }
 
-func (s ScyllaRepository) GetBalance(clientId int) int {
+func (s ScyllaRepository) GetBalance(clientId int) (int, error) {
 	query := fmt.Sprintf("SELECT current_balance "+
 		"FROM rinha.transactions "+
 		"WHERE client_id = %v"+
@@ -111,8 +113,8 @@ func (s ScyllaRepository) GetBalance(clientId int) int {
 		balance, _ = strconv.Atoi(value)
 	}
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		return 0, err
 	}
 
-	return balance
+	return balance, nil
 }

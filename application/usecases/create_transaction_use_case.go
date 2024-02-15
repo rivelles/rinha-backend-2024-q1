@@ -27,9 +27,12 @@ func (useCase CreateTransactionUseCase) Execute(
 	transactionType string,
 	description string,
 	clientLimit int) error {
-	currentBalance := useCase.repository.GetBalance(clientId)
+	currentBalance, err := useCase.repository.GetBalance(clientId)
+	if err != nil {
+		return err
+	}
 	if transactionType == "d" && futureValueLessThanLimit(value, currentBalance, clientLimit) {
-		return fmt.Errorf("transaction not allowed: future balance would be less than limit")
+		return fmt.Errorf("LIMIT_NOT_ALLOWED")
 	}
 	newBalance := currentBalance
 	if transactionType == "d" {
@@ -45,7 +48,10 @@ func (useCase CreateTransactionUseCase) Execute(
 		TransactionType: transactionType,
 		Description:     description,
 	}
-	useCase.repository.SaveTransaction(transaction)
+	err = useCase.repository.SaveTransaction(transaction)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
