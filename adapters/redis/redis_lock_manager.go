@@ -11,7 +11,7 @@ type RedisLockManager struct {
 	client *redis.Client
 }
 
-func (r RedisLockManager) NewRedisLockManager() RedisLockManager {
+func NewRedisLockManager() RedisLockManager {
 	client := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
@@ -28,7 +28,7 @@ func (r RedisLockManager) Acquire(key string) error {
 	if err != nil && currentLock != "" {
 		return fmt.Errorf("LOCK_ALREADY_ACQUIRED")
 	}
-	_, err = r.client.Set(context.Background(), key, true, 1*time.Second).Result()
+	_, err = r.client.Set(context.Background(), key, true, 100*time.Second).Result()
 	return err
 }
 
