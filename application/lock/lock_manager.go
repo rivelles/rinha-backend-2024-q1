@@ -1,5 +1,6 @@
 package lock
 
 type LockManager interface {
-	Acquire(key int)
+	Acquire(key string) error
+	Release(key string) error
 }
