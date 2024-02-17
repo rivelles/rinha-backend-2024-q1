@@ -31,7 +31,7 @@ func (useCase CreateTransactionUseCase) Execute(
 	lockAcquiringAttempt := 0
 	for lockAcquiringAttempt < 3 {
 		err := useCase.lockManager.Acquire(strconv.Itoa(clientId))
-		if err != nil && err.Error() == "LOCK_NOT_ALLOWED" {
+		if err != nil && err.Error() == "LOCK_ALREADY_ACQUIRED" {
 			lockAcquiringAttempt++
 			continue
 		}

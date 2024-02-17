@@ -57,7 +57,11 @@ func (a App) HandleCreateTransaction(writer http.ResponseWriter, req *http.Reque
 		limitByClientId[clientId],
 	)
 	if err != nil {
-		http.Error(writer, err.Error(), http.StatusUnprocessableEntity)
+		if err.Error() == "LIMIT_NOT_ALLOWED" {
+			http.Error(writer, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
