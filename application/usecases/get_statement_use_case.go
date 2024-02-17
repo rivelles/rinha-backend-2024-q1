@@ -1,8 +1,8 @@
 package usecases
 
 import (
-	"github.com/rivelles/rinha-backend-2024-q1/application/repositories"
-	"github.com/rivelles/rinha-backend-2024-q1/model"
+	"rinha-backend-2024-q1/application/repositories"
+	"rinha-backend-2024-q1/model"
 )
 
 type GetStatementUseCase struct {

@@ -3,8 +3,8 @@ package scylla
 import (
 	"fmt"
 	"github.com/gocql/gocql"
-	"github.com/rivelles/rinha-backend-2024-q1/model"
 	"log"
+	"rinha-backend-2024-q1/model"
 	"strconv"
 	"time"
 )

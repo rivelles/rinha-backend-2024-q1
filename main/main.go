@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/rivelles/rinha-backend-2024-q1/adapters/redis"
-	"github.com/rivelles/rinha-backend-2024-q1/adapters/scylla"
+	"rinha-backend-2024-q1/adapters/redis"
+	"rinha-backend-2024-q1/adapters/scylla"
 )
 
 func main() {

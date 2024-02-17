@@ -2,10 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/rivelles/rinha-backend-2024-q1/application/lock"
-	"github.com/rivelles/rinha-backend-2024-q1/application/repositories"
-	"github.com/rivelles/rinha-backend-2024-q1/application/usecases"
 	"net/http"
+	"rinha-backend-2024-q1/application/lock"
+	"rinha-backend-2024-q1/application/repositories"
+	"rinha-backend-2024-q1/application/usecases"
 	"strconv"
 )
 
