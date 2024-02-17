@@ -6,7 +6,7 @@ type Statement struct {
 }
 
 type Summary struct {
-	Total       int    `json:"total"`
+	Total       int64  `json:"total"`
 	GeneratedAt string `json:"data_extrato"`
-	Limit       int    `json:"limite"`
+	Limit       int64  `json:"limite"`
 }

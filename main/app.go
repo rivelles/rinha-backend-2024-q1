@@ -15,7 +15,7 @@ type App struct {
 }
 
 // Roubando :)
-var limitByClientId = map[int]int{
+var limitByClientId = map[int]int64{
 	1: 100000,
 	2: 80000,
 	3: 1000000,
@@ -40,7 +40,7 @@ func (a App) Run(port int) {
 func (a App) HandleCreateTransaction(writer http.ResponseWriter, req *http.Request) {
 	clientId, _ := strconv.Atoi(req.PathValue("id"))
 	var transactionRequest struct {
-		Value int    `json:"valor"`
+		Value int64  `json:"valor"`
 		Type  string `json:"tipo"`
 		Desc  string `json:"descricao"`
 	}

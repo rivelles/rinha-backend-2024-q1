@@ -24,10 +24,10 @@ func NewCreateTransactionUseCase(repository repositories.ClientRepository,
 
 func (useCase CreateTransactionUseCase) Execute(
 	clientId int,
-	value int,
+	value int64,
 	transactionType string,
 	description string,
-	clientLimit int) error {
+	clientLimit int64) error {
 	lockAcquiringAttempt := 0
 	for lockAcquiringAttempt < 3 {
 		err := useCase.lockManager.Acquire(strconv.Itoa(clientId))
@@ -86,7 +86,7 @@ func (useCase CreateTransactionUseCase) Execute(
 	return nil
 }
 
-func futureValueLessThanLimit(value int, currentBalance int, clientLimit int) bool {
+func futureValueLessThanLimit(value int64, currentBalance int64, clientLimit int64) bool {
 	newValue := currentBalance - value
 	if newValue < 0 {
 		return -newValue > clientLimit
