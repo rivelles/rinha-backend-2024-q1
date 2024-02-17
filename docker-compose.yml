@@ -5,7 +5,6 @@ services:
     container_name: scylla
     image: scylladb/scylla:5.2.0
     restart: always
-    command: --smp 1 --memory 1G
     ports:
       - '9042:9042'
     healthcheck:
