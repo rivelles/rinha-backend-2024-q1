@@ -49,7 +49,7 @@ func (a App) HandleCreateTransaction(writer http.ResponseWriter, req *http.Reque
 		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
-	err = a.createTransactionUseCase.Execute(
+	response, err := a.createTransactionUseCase.Execute(
 		clientId,
 		transactionRequest.Value,
 		transactionRequest.Type,
@@ -58,12 +58,15 @@ func (a App) HandleCreateTransaction(writer http.ResponseWriter, req *http.Reque
 	)
 	if err != nil {
 		if err.Error() == "LIMIT_NOT_ALLOWED" {
-			http.Error(writer, err.Error(), http.StatusUnprocessableEntity)
+			http.Error(writer, "", http.StatusUnprocessableEntity)
 			return
 		}
 		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	resultJson, _ := json.Marshal(response)
+	writer.Header().Set("Content-Type", "text/json; charset=utf-8")
+	writer.Write(resultJson)
 }
 
 func (a App) HandleGetStatement(writer http.ResponseWriter, req *http.Request) {

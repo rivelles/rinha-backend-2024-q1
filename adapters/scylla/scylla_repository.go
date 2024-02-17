@@ -105,7 +105,7 @@ func (s ScyllaRepository) GetStatement(clientId int, clientLimit int64) (model.S
 func (s ScyllaRepository) GetBalance(clientId int) (int64, error) {
 	query := fmt.Sprintf("SELECT current_balance "+
 		"FROM rinha.transactions "+
-		"WHERE client_id = %v"+
+		"WHERE client_id = %v "+
 		"ORDER BY timestamp DESC "+
 		"PER PARTITION LIMIT 1", clientId)
 	scanner := s.session.Query(query).Iter().Scanner()
@@ -118,6 +118,7 @@ func (s ScyllaRepository) GetBalance(clientId int) (int64, error) {
 		if err != nil {
 			log.Fatal(err)
 		}
+		balance, _ = strconv.ParseInt(value, 10, 64)
 	}
 	if err := scanner.Err(); err != nil {
 		return 0, err

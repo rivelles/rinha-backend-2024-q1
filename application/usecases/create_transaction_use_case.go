@@ -14,6 +14,11 @@ type CreateTransactionUseCase struct {
 	lockManager lock.LockManager
 }
 
+type CreateTransactionResponse struct {
+	Limit   int64 `json:"limite"`
+	Balance int64 `json:"saldo"`
+}
+
 func NewCreateTransactionUseCase(repository repositories.ClientRepository,
 	lockManager lock.LockManager) CreateTransactionUseCase {
 	return CreateTransactionUseCase{
@@ -27,7 +32,7 @@ func (useCase CreateTransactionUseCase) Execute(
 	value int64,
 	transactionType string,
 	description string,
-	clientLimit int64) error {
+	clientLimit int64) (CreateTransactionResponse, error) {
 	lockAcquiringAttempt := 0
 	for lockAcquiringAttempt < 3 {
 		err := useCase.lockManager.Acquire(strconv.Itoa(clientId))
@@ -39,23 +44,23 @@ func (useCase CreateTransactionUseCase) Execute(
 		break
 	}
 	if lockAcquiringAttempt == 3 {
-		return fmt.Errorf("LOCK_NOT_ALLOWED")
+		return CreateTransactionResponse{}, fmt.Errorf("LOCK_NOT_ALLOWED")
 	}
 
 	currentBalance, err := useCase.repository.GetBalance(clientId)
 	if err != nil {
 		err = useCase.lockManager.Release(strconv.Itoa(clientId))
 		if err != nil {
-			return err
+			return CreateTransactionResponse{}, err
 		}
-		return err
+		return CreateTransactionResponse{}, err
 	}
 	if transactionType == "d" && futureValueLessThanLimit(value, currentBalance, clientLimit) {
 		err = useCase.lockManager.Release(strconv.Itoa(clientId))
 		if err != nil {
-			return err
+			return CreateTransactionResponse{}, err
 		}
-		return fmt.Errorf("LIMIT_NOT_ALLOWED")
+		return CreateTransactionResponse{}, fmt.Errorf("LIMIT_NOT_ALLOWED")
 	}
 	newBalance := currentBalance
 	if transactionType == "d" {
@@ -75,15 +80,16 @@ func (useCase CreateTransactionUseCase) Execute(
 	if err != nil {
 		err = useCase.lockManager.Release(strconv.Itoa(clientId))
 		if err != nil {
-			return err
+			return CreateTransactionResponse{}, err
 		}
-		return err
+		return CreateTransactionResponse{}, err
 	}
-	err = useCase.lockManager.Release(strconv.Itoa(clientId))
-	if err != nil {
-		return err
+	response := CreateTransactionResponse{
+		Limit:   clientLimit,
+		Balance: newBalance,
 	}
-	return nil
+	useCase.lockManager.Release(strconv.Itoa(clientId))
+	return response, nil
 }
 
 func futureValueLessThanLimit(value int64, currentBalance int64, clientLimit int64) bool {
