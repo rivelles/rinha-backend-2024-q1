@@ -33,6 +33,7 @@ func (useCase CreateTransactionUseCase) Execute(
 		err := useCase.lockManager.Acquire(strconv.Itoa(clientId))
 		if err != nil && err.Error() == "LOCK_ALREADY_ACQUIRED" {
 			lockAcquiringAttempt++
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		break

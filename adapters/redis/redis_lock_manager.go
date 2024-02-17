@@ -11,6 +11,8 @@ type RedisLockManager struct {
 	client *redis.Client
 }
 
+var ctx = context.Background()
+
 func NewRedisLockManager() RedisLockManager {
 	client := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
@@ -24,7 +26,7 @@ func NewRedisLockManager() RedisLockManager {
 }
 
 func (r RedisLockManager) Acquire(key string) error {
-	currentLock, err := r.client.Get(context.Background(), key).Result()
+	currentLock, err := r.client.Get(ctx, key).Result()
 	if err == nil && currentLock != "" {
 		return fmt.Errorf("LOCK_ALREADY_ACQUIRED")
 	}
@@ -33,7 +35,6 @@ func (r RedisLockManager) Acquire(key string) error {
 }
 
 func (r RedisLockManager) Release(key string) error {
-	//_, err := r.client.Del(context.Background(), key).Result()
-	//return err
-	return nil
+	_, err := r.client.Del(ctx, key).Result()
+	return err
 }
