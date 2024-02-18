@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"rinha-backend-2024-q1/application/lock"
 	"rinha-backend-2024-q1/application/repositories"
@@ -12,6 +13,12 @@ import (
 type App struct {
 	createTransactionUseCase usecases.CreateTransactionUseCase
 	getStatementUseCase      usecases.GetStatementUseCase
+}
+
+type TransactionRequest struct {
+	Value int64  `json:"valor"`
+	Type  string `json:"tipo"`
+	Desc  string `json:"descricao"`
 }
 
 // Roubando :)
@@ -39,14 +46,15 @@ func (a App) Run(port int) {
 
 func (a App) HandleCreateTransaction(writer http.ResponseWriter, req *http.Request) {
 	clientId, _ := strconv.Atoi(req.PathValue("id"))
-	var transactionRequest struct {
-		Value int64  `json:"valor"`
-		Type  string `json:"tipo"`
-		Desc  string `json:"descricao"`
-	}
+	var transactionRequest TransactionRequest
 	err := json.NewDecoder(req.Body).Decode(&transactionRequest)
 	if err != nil {
-		http.Error(writer, err.Error(), http.StatusBadRequest)
+		http.Error(writer, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	validationErr := validateTransactionRequest(transactionRequest)
+	if validationErr != nil {
+		http.Error(writer, validationErr.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	response, err := a.createTransactionUseCase.Execute(
@@ -67,6 +75,19 @@ func (a App) HandleCreateTransaction(writer http.ResponseWriter, req *http.Reque
 	resultJson, _ := json.Marshal(response)
 	writer.Header().Set("Content-Type", "text/json; charset=utf-8")
 	writer.Write(resultJson)
+}
+
+func validateTransactionRequest(request TransactionRequest) error {
+	if request.Type != "d" && request.Type != "c" {
+		return fmt.Errorf("TYPE_NOT_ALLOWED")
+	}
+	if len(request.Desc) == 0 || len(request.Desc) > 10 {
+		return fmt.Errorf("DESC_NOT_ALLOWED")
+	}
+	if request.Value <= 0 {
+		return fmt.Errorf("VALUE_NOT_ALLOWED")
+	}
+	return nil
 }
 
 func (a App) HandleGetStatement(writer http.ResponseWriter, req *http.Request) {

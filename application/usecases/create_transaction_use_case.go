@@ -27,37 +27,38 @@ func NewCreateTransactionUseCase(repository repositories.ClientRepository,
 	}
 }
 
-func (useCase CreateTransactionUseCase) Execute(
+func (u CreateTransactionUseCase) Execute(
 	clientId int,
 	value int64,
 	transactionType string,
 	description string,
 	clientLimit int64) (CreateTransactionResponse, error) {
-	lockAcquiringAttempt := 0
-	for lockAcquiringAttempt < 3 {
-		err := useCase.lockManager.Acquire(strconv.Itoa(clientId))
+	lockAcquired := false
+	for lockAcquired == false {
+		err := u.lockManager.Acquire(strconv.Itoa(clientId))
 		if err != nil && err.Error() == "LOCK_ALREADY_ACQUIRED" {
-			lockAcquiringAttempt++
-			time.Sleep(100 * time.Millisecond)
+			println("Lock already acquired, will try again...")
+			millisToWait := time.Duration(10)
+			time.Sleep(millisToWait * time.Millisecond)
 			continue
 		}
-		break
-	}
-	if lockAcquiringAttempt == 3 {
-		return CreateTransactionResponse{}, fmt.Errorf("LOCK_NOT_ALLOWED")
+		lockAcquired = true
 	}
 
-	currentBalance, err := useCase.repository.GetBalance(clientId)
+	currentBalance, err := u.repository.GetBalance(clientId)
 	if err != nil {
-		err = useCase.lockManager.Release(strconv.Itoa(clientId))
+		err = u.lockManager.Release(strconv.Itoa(clientId))
 		if err != nil {
+			println("Error: Failed to release lock after get balance")
 			return CreateTransactionResponse{}, err
 		}
+		println("Error: Failed to get balance")
 		return CreateTransactionResponse{}, err
 	}
 	if transactionType == "d" && futureValueLessThanLimit(value, currentBalance, clientLimit) {
-		err = useCase.lockManager.Release(strconv.Itoa(clientId))
+		err = u.lockManager.Release(strconv.Itoa(clientId))
 		if err != nil {
+			println("Error: Failed to release lock before returning limit not allowed error")
 			return CreateTransactionResponse{}, err
 		}
 		return CreateTransactionResponse{}, fmt.Errorf("LIMIT_NOT_ALLOWED")
@@ -76,19 +77,21 @@ func (useCase CreateTransactionUseCase) Execute(
 		TransactionType: transactionType,
 		Description:     description,
 	}
-	err = useCase.repository.SaveTransaction(transaction)
+	err = u.repository.SaveTransaction(transaction)
 	if err != nil {
-		err = useCase.lockManager.Release(strconv.Itoa(clientId))
+		err = u.lockManager.Release(strconv.Itoa(clientId))
 		if err != nil {
+			println("Error: Failed to release lock after saving transaction")
 			return CreateTransactionResponse{}, err
 		}
+		println("Error: Failed to save transaction")
 		return CreateTransactionResponse{}, err
 	}
 	response := CreateTransactionResponse{
 		Limit:   clientLimit,
 		Balance: newBalance,
 	}
-	useCase.lockManager.Release(strconv.Itoa(clientId))
+	u.lockManager.Release(strconv.Itoa(clientId))
 	return response, nil
 }
 

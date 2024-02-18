@@ -35,12 +35,14 @@ func NewRedisLockManager() RedisLockManager {
 }
 
 func (r RedisLockManager) Acquire(key string) error {
-	currentLock, err := r.client.Get(ctx, key).Result()
-	if err == nil && currentLock != "" {
+	acquired, err := r.client.SetNX(ctx, key, true, 1*time.Second).Result()
+	if err != nil {
+		return err
+	}
+	if !acquired {
 		return fmt.Errorf("LOCK_ALREADY_ACQUIRED")
 	}
-	_, err = r.client.Set(context.Background(), key, true, 1*time.Second).Result()
-	return err
+	return nil
 }
 
 func (r RedisLockManager) Release(key string) error {
