@@ -1,8 +1,10 @@
 package model
 
 type Statement struct {
-	Summary      Summary       `json:"saldo"`
-	Transactions []Transaction `json:"ultimas_transacoes"`
+	ClientId          int           `json:"-"`
+	TotalTransactions int64         `json:"-"`
+	Summary           Summary       `json:"saldo"`
+	Transactions      []Transaction `json:"ultimas_transacoes"`
 }
 
 type Summary struct {

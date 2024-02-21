@@ -4,8 +4,6 @@ go 1.22.0
 
 require (
 	github.com/gocql/gocql v1.6.0
-	github.com/redis/go-redis/v9 v9.4.0
-	github.com/rivelles/rinha-backend-2024-q1/model v0.0.0-20240217105012-bb809f6a2dc5
 )
 
 require (

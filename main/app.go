@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"rinha-backend-2024-q1/application/lock"
 	"rinha-backend-2024-q1/application/repositories"
 	"rinha-backend-2024-q1/application/usecases"
 	"strconv"
@@ -30,9 +29,9 @@ var limitByClientId = map[int]int64{
 	5: 500000,
 }
 
-func NewApp(repository repositories.ClientRepository, lockManager lock.LockManager) *App {
+func NewApp(repository repositories.ClientRepository) *App {
 	return &App{
-		usecases.NewCreateTransactionUseCase(repository, lockManager),
+		usecases.NewCreateTransactionUseCase(repository),
 		usecases.NewGetStatementUseCase(repository),
 	}
 }
@@ -95,7 +94,7 @@ func (a App) HandleGetStatement(writer http.ResponseWriter, req *http.Request) {
 	if clientId > 5 || clientId < 0 {
 		writer.WriteHeader(http.StatusNotFound)
 	} else {
-		statement, err := a.getStatementUseCase.Execute(clientId, limitByClientId[clientId])
+		statement, err := a.getStatementUseCase.Execute(clientId)
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
 			return

@@ -1,12 +1,12 @@
 package scylla
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gocql/gocql"
 	"log"
 	"os"
 	"rinha-backend-2024-q1/model"
-	"strconv"
 	"time"
 )
 
@@ -28,101 +28,94 @@ func NewScyllaRepository() *ScyllaRepository {
 	session.Query("create keyspace if not exists rinha with replication = {'class':'SimpleStrategy', 'replication_factor':1}").Exec()
 
 	session.Query("create table if not exists rinha.transactions" +
-		"(client_id int, " +
-		"timestamp bigint, " +
-		"value bigint, " +
+		"(client_id tinyint, " +
 		"current_balance bigint, " +
-		"type text, " +
-		"description text, " +
-		"PRIMARY KEY(client_id, timestamp)" +
+		"last_transactions text, " +
+		"number_transactions bigint, " +
+		"PRIMARY KEY(client_id)" +
 		")").Exec()
+
+	session.Query("insert into rinha.transactions " +
+		"(client_id, current_balance, last_transactions, number_transactions)" +
+		"VALUES (1, 0, '', 0)").Exec()
+
+	session.Query("insert into rinha.transactions " +
+		"(client_id, current_balance, last_transactions, number_transactions)" +
+		"VALUES (2, 0, '', 0)").Exec()
+
+	session.Query("insert into rinha.transactions " +
+		"(client_id, current_balance, last_transactions, number_transactions)" +
+		"VALUES (3, 0, '', 0)").Exec()
+
+	session.Query("insert into rinha.transactions " +
+		"(client_id, current_balance, last_transactions, number_transactions)" +
+		"VALUES (4, 0, '', 0)").Exec()
+
+	session.Query("insert into rinha.transactions " +
+		"(client_id, current_balance, last_transactions, number_transactions)" +
+		"VALUES (5, 0, '', 0)").Exec()
 
 	fmt.Println("Created keyspace")
 
 	return &ScyllaRepository{session: session}
 }
 
-func (s ScyllaRepository) SaveTransaction(transaction model.Transaction) error {
-	query := fmt.Sprintf("insert into rinha.transactions (client_id, value, current_balance, type, description, timestamp) VALUES "+
-		"(%v, %v, %v, '%v', '%v', %v)", transaction.ClientId, transaction.Value, transaction.CurrentBalance, transaction.TransactionType, transaction.Description, transaction.Timestamp)
-	err := s.session.Query(query).Exec()
-	return err
+func (s ScyllaRepository) SaveStatement(statement model.Statement) error {
+	marshalTransactions, _ := json.Marshal(statement.Transactions)
+	incTransactionNumber := statement.TotalTransactions + 1
+	query := fmt.Sprintf("update rinha.transactions "+
+		"set current_balance = %v, "+
+		"number_transactions = %v, "+
+		"last_transactions = '%v' "+
+		"where client_id = %v "+
+		"if number_transactions = %v", statement.Summary.Total, incTransactionNumber, string(marshalTransactions), statement.ClientId, statement.TotalTransactions)
+	m := make(map[string]interface{})
+	applied, err := s.session.Query(query).MapScanCAS(m)
+	if err != nil {
+		return err
+	}
+	if !applied {
+		return fmt.Errorf("CONFLICT")
+	}
+	return nil
 }
 
-func (s ScyllaRepository) GetStatement(clientId int, clientLimit int64) (model.Statement, error) {
-	query := fmt.Sprintf("select value, current_balance, type, description, timestamp "+
+func (s ScyllaRepository) GetStatement(clientId int) (model.Statement, error) {
+	query := fmt.Sprintf("select current_balance, last_transactions, number_transactions "+
 		"from rinha.transactions "+
-		"WHERE client_id = %v "+
-		"ORDER BY timestamp DESC "+
-		"PER PARTITION LIMIT 10", clientId)
+		"WHERE client_id = %v", clientId)
 
 	scanner := s.session.Query(query).Iter().Scanner()
-	var balance int64 = 0
-	firstRow := true
 	var transactions []model.Transaction
 	for scanner.Next() {
 		var (
-			value           int64
-			currentBalance  int64
-			transactionType string
-			description     string
-			timestamp       string
+			currentBalance     int64
+			lastTransactions   string
+			numberTransactions int64
 		)
-		err := scanner.Scan(&value, &currentBalance, &transactionType, &description, &timestamp)
+		err := scanner.Scan(&currentBalance, &lastTransactions, &numberTransactions)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if firstRow {
-			balance = currentBalance
-			firstRow = false
+		summary := model.Summary{
+			Total:       currentBalance,
+			GeneratedAt: time.Now().String(),
 		}
-		timestampInt, _ := strconv.ParseInt(timestamp, 10, 64)
-		i := append(transactions, model.Transaction{
-			ClientId:        clientId,
-			Value:           value,
-			TransactionType: transactionType,
-			Description:     description,
-			Timestamp:       timestampInt,
-			TimestampStr:    time.UnixMilli(timestampInt).Format(time.RFC3339),
-		})
-		transactions = i
-	}
-	if err := scanner.Err(); err != nil {
-		return model.Statement{}, err
-	}
-
-	summary := model.Summary{
-		GeneratedAt: time.Now().Format(time.RFC3339),
-		Total:       balance,
-		Limit:       clientLimit,
-	}
-	return model.Statement{
-		Summary:      summary,
-		Transactions: transactions,
-	}, nil
-}
-
-func (s ScyllaRepository) GetBalance(clientId int) (int64, error) {
-	query := fmt.Sprintf("SELECT current_balance "+
-		"FROM rinha.transactions "+
-		"WHERE client_id = %v "+
-		"ORDER BY timestamp DESC "+
-		"PER PARTITION LIMIT 1", clientId)
-	scanner := s.session.Query(query).Iter().Scanner()
-	var balance int64 = 0
-	for scanner.Next() {
-		var (
-			value string
-		)
-		err := scanner.Scan(&value)
-		if err != nil {
-			log.Fatal(err)
+		if lastTransactions != "" {
+			err = json.Unmarshal([]byte(lastTransactions), &transactions)
+			if err != nil {
+				return model.Statement{}, err
+			}
+		} else {
+			transactions = []model.Transaction{}
 		}
-		balance, _ = strconv.ParseInt(value, 10, 64)
+		statement := model.Statement{
+			ClientId:          clientId,
+			Summary:           summary,
+			Transactions:      transactions,
+			TotalTransactions: numberTransactions,
+		}
+		return statement, nil
 	}
-	if err := scanner.Err(); err != nil {
-		return 0, err
-	}
-
-	return balance, nil
+	return model.Statement{}, fmt.Errorf("NOT_FOUND")
 }

@@ -2,16 +2,13 @@ package usecases
 
 import (
 	"fmt"
-	"rinha-backend-2024-q1/application/lock"
 	"rinha-backend-2024-q1/application/repositories"
 	"rinha-backend-2024-q1/model"
-	"strconv"
 	"time"
 )
 
 type CreateTransactionUseCase struct {
-	repository  repositories.ClientRepository
-	lockManager lock.LockManager
+	repository repositories.ClientRepository
 }
 
 type CreateTransactionResponse struct {
@@ -19,11 +16,9 @@ type CreateTransactionResponse struct {
 	Balance int64 `json:"saldo"`
 }
 
-func NewCreateTransactionUseCase(repository repositories.ClientRepository,
-	lockManager lock.LockManager) CreateTransactionUseCase {
+func NewCreateTransactionUseCase(repository repositories.ClientRepository) CreateTransactionUseCase {
 	return CreateTransactionUseCase{
-		repository:  repository,
-		lockManager: lockManager,
+		repository: repository,
 	}
 }
 
@@ -33,66 +28,38 @@ func (u CreateTransactionUseCase) Execute(
 	transactionType string,
 	description string,
 	clientLimit int64) (CreateTransactionResponse, error) {
-	lockAcquired := false
-	for lockAcquired == false {
-		err := u.lockManager.Acquire(strconv.Itoa(clientId))
-		if err != nil && err.Error() == "LOCK_ALREADY_ACQUIRED" {
-			println("Lock already acquired, will try again...")
-			millisToWait := time.Duration(10)
-			time.Sleep(millisToWait * time.Millisecond)
-			continue
-		}
-		lockAcquired = true
-	}
-
-	currentBalance, err := u.repository.GetBalance(clientId)
+	statement, err := u.repository.GetStatement(clientId)
 	if err != nil {
-		err = u.lockManager.Release(strconv.Itoa(clientId))
-		if err != nil {
-			println("Error: Failed to release lock after get balance")
-			return CreateTransactionResponse{}, err
-		}
-		println("Error: Failed to get balance")
-		return CreateTransactionResponse{}, err
+		return CreateTransactionResponse{}, nil
 	}
-	if transactionType == "d" && futureValueLessThanLimit(value, currentBalance, clientLimit) {
-		err = u.lockManager.Release(strconv.Itoa(clientId))
-		if err != nil {
-			println("Error: Failed to release lock before returning limit not allowed error")
-			return CreateTransactionResponse{}, err
-		}
+	total := statement.Summary.Total
+	if transactionType == "d" && futureValueLessThanLimit(value, total, clientLimit) {
 		return CreateTransactionResponse{}, fmt.Errorf("LIMIT_NOT_ALLOWED")
 	}
-	newBalance := currentBalance
-	if transactionType == "d" {
-		newBalance -= value
-	} else {
-		newBalance += value
-	}
-	transaction := model.Transaction{
-		ClientId:        clientId,
-		Timestamp:       time.Now().UnixMilli(),
+	newTransaction := model.Transaction{
 		Value:           value,
-		CurrentBalance:  newBalance,
 		TransactionType: transactionType,
 		Description:     description,
+		Timestamp:       time.Now().String(),
 	}
-	err = u.repository.SaveTransaction(transaction)
+	transactions := append([]model.Transaction{newTransaction}, statement.Transactions...)
+	if len(transactions) > 10 {
+		transactions = transactions[:len(transactions)-1]
+	}
+	statement.Transactions = transactions
+	if transactionType == "d" {
+		statement.Summary.Total = total - value
+	} else {
+		statement.Summary.Total = total + value
+	}
+	err = u.repository.SaveStatement(statement)
 	if err != nil {
-		err = u.lockManager.Release(strconv.Itoa(clientId))
-		if err != nil {
-			println("Error: Failed to release lock after saving transaction")
-			return CreateTransactionResponse{}, err
-		}
-		println("Error: Failed to save transaction")
 		return CreateTransactionResponse{}, err
 	}
-	response := CreateTransactionResponse{
+	return CreateTransactionResponse{
 		Limit:   clientLimit,
-		Balance: newBalance,
-	}
-	u.lockManager.Release(strconv.Itoa(clientId))
-	return response, nil
+		Balance: statement.Summary.Total,
+	}, nil
 }
 
 func futureValueLessThanLimit(value int64, currentBalance int64, clientLimit int64) bool {

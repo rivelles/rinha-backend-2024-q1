@@ -1,9 +1,0 @@
-# Scylla configurations
-scylla:
-  host: "localhost"
-  port: 8000
-
-# Redis configurations
-redis:
-  host: "admin"
-  port: "super-pedro-1980"
