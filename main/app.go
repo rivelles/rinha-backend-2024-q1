@@ -95,6 +95,7 @@ func (a App) HandleGetStatement(writer http.ResponseWriter, req *http.Request) {
 		writer.WriteHeader(http.StatusNotFound)
 	} else {
 		statement, err := a.getStatementUseCase.Execute(clientId)
+		statement.Summary.Limit = limitByClientId[clientId]
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
 			return

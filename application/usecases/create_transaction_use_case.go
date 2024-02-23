@@ -28,38 +28,46 @@ func (u CreateTransactionUseCase) Execute(
 	transactionType string,
 	description string,
 	clientLimit int64) (CreateTransactionResponse, error) {
-	statement, err := u.repository.GetStatement(clientId)
-	if err != nil {
-		return CreateTransactionResponse{}, nil
+	response := CreateTransactionResponse{}
+	for {
+		statement, err := u.repository.GetStatement(clientId)
+		if err != nil {
+			return CreateTransactionResponse{}, nil
+		}
+		total := statement.Summary.Total
+		if transactionType == "d" && futureValueLessThanLimit(value, total, clientLimit) {
+			return CreateTransactionResponse{}, fmt.Errorf("LIMIT_NOT_ALLOWED")
+		}
+		newTransaction := model.Transaction{
+			Value:           value,
+			TransactionType: transactionType,
+			Description:     description,
+			Timestamp:       time.Now().String(),
+		}
+		transactions := append([]model.Transaction{newTransaction}, statement.Transactions...)
+		if len(transactions) > 10 {
+			transactions = transactions[:len(transactions)-1]
+		}
+		statement.Transactions = transactions
+		if transactionType == "d" {
+			statement.Summary.Total = total - value
+		} else {
+			statement.Summary.Total = total + value
+		}
+		err = u.repository.SaveStatement(statement)
+		if err != nil && err.Error() == "CONFLICT" {
+			continue
+		}
+		if err != nil {
+			return CreateTransactionResponse{}, err
+		}
+		response = CreateTransactionResponse{
+			Limit:   clientLimit,
+			Balance: statement.Summary.Total,
+		}
+		break
 	}
-	total := statement.Summary.Total
-	if transactionType == "d" && futureValueLessThanLimit(value, total, clientLimit) {
-		return CreateTransactionResponse{}, fmt.Errorf("LIMIT_NOT_ALLOWED")
-	}
-	newTransaction := model.Transaction{
-		Value:           value,
-		TransactionType: transactionType,
-		Description:     description,
-		Timestamp:       time.Now().String(),
-	}
-	transactions := append([]model.Transaction{newTransaction}, statement.Transactions...)
-	if len(transactions) > 10 {
-		transactions = transactions[:len(transactions)-1]
-	}
-	statement.Transactions = transactions
-	if transactionType == "d" {
-		statement.Summary.Total = total - value
-	} else {
-		statement.Summary.Total = total + value
-	}
-	err = u.repository.SaveStatement(statement)
-	if err != nil {
-		return CreateTransactionResponse{}, err
-	}
-	return CreateTransactionResponse{
-		Limit:   clientLimit,
-		Balance: statement.Summary.Total,
-	}, nil
+	return response, nil
 }
 
 func futureValueLessThanLimit(value int64, currentBalance int64, clientLimit int64) bool {
